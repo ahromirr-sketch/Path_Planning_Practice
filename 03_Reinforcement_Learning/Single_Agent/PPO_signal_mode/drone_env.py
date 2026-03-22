@@ -6,7 +6,7 @@ class DroneEnv(gym.Env):
     def __init__(self):
         super(DroneEnv, self).__init__()
         
-        self.map_size = 300.0
+        self.map_size = 600.0
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
         
         # 11차원 관측 공간 유지
@@ -15,7 +15,10 @@ class DroneEnv(gym.Env):
         self.obstacles = [
             {'pos': np.array([100.0, 100.0]), 'radius': 30.0},
             {'pos': np.array([200.0, 230.0]), 'radius': 30.0},
-            {'pos': np.array([75.0, 220.0]), 'radius': 30.0}
+            {'pos': np.array([75.0, 220.0]), 'radius': 30.0},
+            {'pos': np.array([175.0, 420.0]), 'radius': 30.0},
+            {'pos': np.array([375.0, 320.0]), 'radius': 30.0},
+            {'pos': np.array([475.0, 120.0]), 'radius': 30.0},
         ]
         
         self.max_dist = self.map_size * 1.414
@@ -25,9 +28,9 @@ class DroneEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        self.drone_pos = np.array([20.0, 20.0], dtype=np.float32)
+        self.drone_pos = np.array([20.0, 20.0], dtype=np.float32) # 시작점은 항상 좌하단 (20,20)으로 고정
         self.current_step = 0
-        
+        # 타겟 위치 설정: options에 'target_pos'가 있으면 그 위치로, 없으면 랜덤으로 생성
         if options and 'target_pos' in options:
             self.target_pos = np.array(options['target_pos'], dtype=np.float32)
         else:
@@ -42,14 +45,27 @@ class DroneEnv(gym.Env):
 
     def _get_random_target(self):
         while True:
-            pos = np.random.uniform(20.0, 280.0, size=(2,))
-            collision = False
+            target_x = np.random.uniform(20.0, self.map_size - 20.0)
+            target_y = np.random.uniform(20.0, self.map_size - 20.0)
+            # x와 y를 더한 값이 맵 크기보다 작으면 좌하단 삼각형이므로 가차없이 탈락(continue)시킵니다.
+            if target_x + target_y < self.map_size + 10.0: # (+10.0을 더해서 대각선보다 살짝 더 우상단으로 밀어넣음)
+                continue 
+            
+            target = np.array([target_x, target_y], dtype=np.float32)
+            
+            # 장애물/시작점 겹침 방지
+            valid = True
             for obs in self.obstacles:
-                if np.linalg.norm(pos - obs['pos']) <= obs['radius'] + 10.0:
-                    collision = True
+                if np.linalg.norm(target - obs['pos']) < obs['radius'] + 10.0:
+                    valid = False
                     break
-            if not collision and np.linalg.norm(pos - np.array([20.0, 20.0])) > 100.0:
-                return pos
+            
+            # 시작점(20,20)과 거리가 너무 가깝지 않도록 (우상단이라 어차피 멀지만 혹시 몰라 유지)
+            if np.linalg.norm(target - self.drone_pos) < 100.0:
+                valid = False
+                
+            if valid:
+                return target
 
     def _get_min_threat(self):
         """💡 NEW: 원형 장애물과 4면의 벽을 모두 포함하여 가장 가까운 위협을 계산합니다."""
@@ -139,7 +155,7 @@ class DroneEnv(gym.Env):
         
         # 💡 벽이든 원이든 부딪히면 무조건 사망 (코드 대폭 단순화)
         if min_dist <= 0: 
-            reward = -500.0
+            reward = -100.0
             terminated = True
             return self._get_obs(), reward, terminated, truncated, {}
 

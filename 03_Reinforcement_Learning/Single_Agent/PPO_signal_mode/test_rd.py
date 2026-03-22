@@ -72,8 +72,8 @@ def main():
     ax_graph.legend()
     ax_graph.grid(True)
 
-    ax_map.set_xlim(0, 300)
-    ax_map.set_ylim(0, 300)
+    ax_map.set_xlim(0, env.map_size)
+    ax_map.set_ylim(0, env.map_size)
     ax_map.set_title("Drone Search Path (Signal Based)")
     ax_map.set_aspect('equal')
     
