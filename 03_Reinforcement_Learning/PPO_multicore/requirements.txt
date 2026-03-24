@@ -1,0 +1,5 @@
+gymnasium[vector]
+numpy
+matplotlib
+
+# pip install -r requirements.txt

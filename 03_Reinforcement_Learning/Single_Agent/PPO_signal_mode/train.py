@@ -11,7 +11,7 @@ def main():
     action_dim = env.action_space.shape[0]
     
     # 랜덤 타겟을 찾기 위해 에피소드 수를 늘립니다.
-    max_episodes = 1000 
+    max_episodes = 3000 
     max_steps = 500
     update_timestep = 1000 
     

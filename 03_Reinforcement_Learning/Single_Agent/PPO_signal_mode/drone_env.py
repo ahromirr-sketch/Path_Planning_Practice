@@ -13,12 +13,12 @@ class DroneEnv(gym.Env):
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(11,), dtype=np.float32)
         
         self.obstacles = [
-            {'pos': np.array([100.0, 100.0]), 'radius': 30.0},
-            {'pos': np.array([200.0, 230.0]), 'radius': 30.0},
-            {'pos': np.array([75.0, 220.0]), 'radius': 30.0},
-            {'pos': np.array([175.0, 420.0]), 'radius': 30.0},
-            {'pos': np.array([375.0, 320.0]), 'radius': 30.0},
-            {'pos': np.array([475.0, 120.0]), 'radius': 30.0},
+            {'pos': np.array([50.0, 140.0]), 'radius': 50.0},
+            {'pos': np.array([200.0, 230.0]), 'radius': 50.0},
+            {'pos': np.array([465.0, 520.0]), 'radius': 50.0},
+            {'pos': np.array([175.0, 420.0]), 'radius': 50.0},
+            {'pos': np.array([375.0, 320.0]), 'radius': 100.0},
+            {'pos': np.array([475.0, 120.0]), 'radius': 50.0},
         ]
         
         self.max_dist = self.map_size * 1.414
@@ -69,14 +69,15 @@ class DroneEnv(gym.Env):
 
     def _get_min_threat(self):
         """💡 NEW: 원형 장애물과 4면의 벽을 모두 포함하여 가장 가까운 위협을 계산합니다."""
-        min_dist = float('inf')
+        min_dist = float('inf') 
         threat_dx = 0.0
         threat_dy = 0.0
 
         # 1. 원형 장애물 검사
         for obs in self.obstacles:
             dist_vec = obs['pos'] - self.drone_pos 
-            dist = np.linalg.norm(dist_vec) - obs['radius']
+            # 장애물 중심까지의 거리에서 반지름을 빼서 실제로 드론이 접근할 수 있는 최소 거리를 계산합니다.
+            dist = np.linalg.norm(dist_vec) - obs['radius'] 
             if dist < min_dist:
                 min_dist = dist
                 norm_dist = np.linalg.norm(dist_vec)
@@ -120,7 +121,7 @@ class DroneEnv(gym.Env):
         if target_dist > 0:
             target_dx = target_vec[0] / target_dist
             target_dy = target_vec[1] / target_dist
-
+        # 관측값 리스트: [드론 위치(x,y), 이전 행동(2), 가장 가까운 위협의 방향(2), 타겟 방향(2), 안전 거리, 회피 접선 방향(2)]
         obs_list = [
             self.drone_pos[0] / self.map_size,
             self.drone_pos[1] / self.map_size,
@@ -143,7 +144,7 @@ class DroneEnv(gym.Env):
         smoothness_penalty = action_diff * 0.05  
         
         self.prev_action = action
-        move_vector = action * 5.0
+        move_vector = action * 5.0 # 행동의 크기에 따라 이동 벡터를 조정 (5.0은 최대 이동 거리)
         self.drone_pos += move_vector
         
         terminated = False
@@ -155,14 +156,14 @@ class DroneEnv(gym.Env):
         
         # 💡 벽이든 원이든 부딪히면 무조건 사망 (코드 대폭 단순화)
         if min_dist <= 0: 
-            reward = -100.0
+            reward = -100.0 # 충돌 시 큰 패널티와 함께 에피소드 종료
             terminated = True
             return self._get_obs(), reward, terminated, truncated, {}
 
         distance_to_target = np.linalg.norm(self.target_pos - self.drone_pos)
         
         if distance_to_target < 5.0:  
-            reward = 2000.0
+            reward = 2000.0 # 목표에 도달하면 큰 보상과 함께 에피소드 종료
             terminated = True
         else:
             reward = (self.prev_distance - distance_to_target) * 5.0 
@@ -176,7 +177,7 @@ class DroneEnv(gym.Env):
                 repulsion_scale = min(1.0, distance_to_target / 60.0) 
                 reward += threat_diff * 15.0 * repulsion_scale
                 
-            reward -= 0.1 
+            reward -= 1.0 # 매 스텝마다 작은 패널티로 더 빠른 해결을 유도합니다.
             reward -= smoothness_penalty
 
         self.prev_distance = distance_to_target

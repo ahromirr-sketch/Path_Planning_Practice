@@ -66,7 +66,7 @@ class ActorCritic(nn.Module):
         dist = Normal(action_mean, action_std)
         
         action_logprobs = dist.log_prob(action).sum(dim=-1)
-        dist_entropy = dist.entropy().sum(dim=-1)
+        dist_entropy = dist.entropy().sum(dim=-1) # 행동의 엔트로피(불확실성) 계산
         state_values = self.critic(state)
         
         return action_logprobs, state_values.squeeze(-1), dist_entropy
